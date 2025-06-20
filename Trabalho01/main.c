@@ -21,7 +21,6 @@ typedef struct {
 } AssembledInstruction;
 
 const Instruction INSTRUCTION_SET[INSTRUCTION_COUNT] = {
-    // 7 instruções obrigatórias do grupo 14
     {"lh",  0x03, 0x1, 0x00, 'I'},
     {"sh",  0x23, 0x1, 0x00, 'S'},
     {"sub", 0x33, 0x0, 0x20, 'R'},
@@ -29,7 +28,7 @@ const Instruction INSTRUCTION_SET[INSTRUCTION_COUNT] = {
     {"andi",0x13, 0x7, 0x00, 'I'},
     {"srl", 0x33, 0x5, 0x00, 'R'},
     {"beq", 0x63, 0x0, 0x00, 'B'},
-    // Instruções auxiliares obrigatórias
+    
     {"add", 0x33, 0x0, 0x00, 'R'},
     {"addi",0x13, 0x0, 0x00, 'I'},
     {"sll", 0x33, 0x1, 0x00, 'R'},
@@ -80,7 +79,7 @@ uint32_t encode_s_type(const Instruction *inst, uint8_t rs1, uint8_t rs2, uint32
 }
 
 uint32_t encode_b_type(const Instruction *inst, uint8_t rs1, uint8_t rs2, uint32_t imm) {
-    // Imediato em B-type é dividido: imm[12|10:5|4:1|11]
+    
     uint32_t imm_12 = (imm >> 12) & 0x1;
     uint32_t imm_11 = (imm >> 11) & 0x1;
     uint32_t imm_10_5 = (imm >> 5) & 0x3F;
@@ -118,7 +117,6 @@ uint32_t assemble_instruction(const char *line) {
                 return encode_s_type(inst, register_number(base),
                                    register_number(rs2), parse_immediate(offset));
             } else {
-                // Fallback para formato sem parênteses
                 sscanf(line, "%4s %4s, %19s, %4s", mnemonic, rs2, imm, rs1);
                 return encode_s_type(inst, register_number(rs1),
                                    register_number(rs2), parse_immediate(imm));
