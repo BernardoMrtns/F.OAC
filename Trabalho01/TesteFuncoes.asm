@@ -1,8 +1,5 @@
-lh x1, 4(x2)
-sh x3, 8(x4)
-sub x5, x6, x7
-or x8, x9, x10
-andi x11, x12, 255
-srl x13, x14, x15
-beq x16, x17, 12
-
+add x2, x0, x1
+sll x1, x2, x2
+or x2, x2, x1
+andi x2, x1, 16
+addi x3, x2, -243
