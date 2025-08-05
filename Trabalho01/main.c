@@ -4,9 +4,12 @@
 #include <stdint.h>
 #include <ctype.h>
 
+// Constantes do programa
 #define MAX_LINE_LENGTH 100
 #define INSTRUCTION_COUNT 11
+#define MAX_INSTRUCTIONS 100
 
+// Estruturas de dados
 typedef struct {
     char mnemonic[5];
     uint8_t opcode;
@@ -20,32 +23,36 @@ typedef struct {
     char original[50];
 } AssembledInstruction;
 
+// Conjunto de instruções suportadas
 const Instruction INSTRUCTION_SET[INSTRUCTION_COUNT] = {
-    {"lh",  0x03, 0x1, 0x00, 'I'},
-    {"sh",  0x23, 0x1, 0x00, 'S'},
-    {"sub", 0x33, 0x0, 0x20, 'R'},
-    {"or",  0x33, 0x6, 0x00, 'R'},
-    {"andi",0x13, 0x7, 0x00, 'I'},
-    {"srl", 0x33, 0x5, 0x00, 'R'},
-    {"beq", 0x63, 0x0, 0x00, 'B'},
-    
-    {"add", 0x33, 0x0, 0x00, 'R'},
-    {"addi",0x13, 0x0, 0x00, 'I'},
-    {"sll", 0x33, 0x1, 0x00, 'R'},
-    {"xor", 0x33, 0x4, 0x00, 'R'}
+    {"lh",   0x03, 0x1, 0x00, 'I'},
+    {"sh",   0x23, 0x1, 0x00, 'S'},
+    {"sub",  0x33, 0x0, 0x20, 'R'},
+    {"or",   0x33, 0x6, 0x00, 'R'},
+    {"andi", 0x13, 0x7, 0x00, 'I'},
+    {"srl",  0x33, 0x5, 0x00, 'R'},
+    {"beq",  0x63, 0x0, 0x00, 'B'},
+    {"add",  0x33, 0x0, 0x00, 'R'},
+    {"addi", 0x13, 0x0, 0x00, 'I'},
+    {"sll",  0x33, 0x1, 0x00, 'R'},
+    {"xor",  0x33, 0x4, 0x00, 'R'}
 };
 
-uint32_t parse_immediate(const char *str) {
+// ============================================================================
+// FUNÇÕES AUXILIARES
+// ============================================================================
+
+uint32_t analisar_imediato(const char *str) {
     if (strncmp(str, "0x", 2) == 0) return strtoul(str, NULL, 16);
     if (strncmp(str, "0b", 2) == 0) return strtoul(str+2, NULL, 2);
     return strtoul(str, NULL, 10);
 }
 
-uint8_t register_number(const char *reg) {
+uint8_t numero_registrador(const char *reg) {
     return (uint8_t)strtoul(reg+1, NULL, 10);
 }
 
-void expand_pseudo_instructions(char *line) {
+void expandir_pseudo_instrucoes(char *line) {
     if (strncmp(line, "mv ", 3) == 0) {
         char rd[5], rs[5];
         sscanf(line, "mv %4s, %4s", rd, rs);
@@ -61,25 +68,28 @@ void expand_pseudo_instructions(char *line) {
     }
 }
 
-uint32_t encode_r_type(const Instruction *inst, uint8_t rd, uint8_t rs1, uint8_t rs2) {
+// ============================================================================
+// FUNÇÕES DE CODIFICAÇÃO POR TIPO DE INSTRUÇÃO
+// ============================================================================
+
+uint32_t codificar_tipo_r(const Instruction *inst, uint8_t rd, uint8_t rs1, uint8_t rs2) {
     return (inst->funct7 << 25) | (rs2 << 20) | (rs1 << 15) 
          | (inst->funct3 << 12) | (rd << 7) | inst->opcode;
 }
 
-uint32_t encode_i_type(const Instruction *inst, uint8_t rd, uint8_t rs1, uint32_t imm) {
+uint32_t codificar_tipo_i(const Instruction *inst, uint8_t rd, uint8_t rs1, uint32_t imm) {
     return (imm << 20) | (rs1 << 15) | (inst->funct3 << 12) 
          | (rd << 7) | inst->opcode;
 }
 
-uint32_t encode_s_type(const Instruction *inst, uint8_t rs1, uint8_t rs2, uint32_t imm) {
+uint32_t codificar_tipo_s(const Instruction *inst, uint8_t rs1, uint8_t rs2, uint32_t imm) {
     uint32_t imm_11_5 = (imm >> 5) & 0x7F;
     uint32_t imm_4_0 = imm & 0x1F;
     return (imm_11_5 << 25) | (rs2 << 20) | (rs1 << 15) | (inst->funct3 << 12) 
          | (imm_4_0 << 7) | inst->opcode;
 }
 
-uint32_t encode_b_type(const Instruction *inst, uint8_t rs1, uint8_t rs2, uint32_t imm) {
-    
+uint32_t codificar_tipo_b(const Instruction *inst, uint8_t rs1, uint8_t rs2, uint32_t imm) {
     uint32_t imm_12 = (imm >> 12) & 0x1;
     uint32_t imm_11 = (imm >> 11) & 0x1;
     uint32_t imm_10_5 = (imm >> 5) & 0x3F;
@@ -89,10 +99,15 @@ uint32_t encode_b_type(const Instruction *inst, uint8_t rs1, uint8_t rs2, uint32
          | (inst->funct3 << 12) | (imm_4_1 << 8) | (imm_11 << 7) | inst->opcode;
 }
 
-uint32_t assemble_instruction(const char *line) {
+// ============================================================================
+// FUNÇÃO PRINCIPAL DE MONTAGEM
+// ============================================================================
+
+uint32_t montar_instrucao(const char *line) {
     char mnemonic[5], rd[5], rs1[5], rs2[5], imm[20];
     const Instruction *inst = NULL;
     
+    // Busca a instrução no conjunto de instruções
     for (int i = 0; i < INSTRUCTION_COUNT; i++) {
         if (strncmp(line, INSTRUCTION_SET[i].mnemonic, strlen(INSTRUCTION_SET[i].mnemonic)) == 0) {
             inst = &INSTRUCTION_SET[i];
@@ -102,34 +117,44 @@ uint32_t assemble_instruction(const char *line) {
     
     if (!inst) return 0;
 
-    switch (inst->type) {        case 'R': {
+    switch (inst->type) {
+        case 'R': {
             sscanf(line, "%4s %4s, %4s, %4s", mnemonic, rd, rs1, rs2);
-            return encode_r_type(inst, register_number(rd), 
-                               register_number(rs1), register_number(rs2));
+            return codificar_tipo_r(inst, numero_registrador(rd), 
+                               numero_registrador(rs1), numero_registrador(rs2));
         }
+        
         case 'I': {
             sscanf(line, "%4s %4s, %4s, %19s", mnemonic, rd, rs1, imm);
-            return encode_i_type(inst, register_number(rd),
-                               register_number(rs1), parse_immediate(imm));
-        }        case 'S': {
+            return codificar_tipo_i(inst, numero_registrador(rd),
+                               numero_registrador(rs1), analisar_imediato(imm));
+        }
+        
+        case 'S': {
             char offset[20], base[5];
             if (sscanf(line, "%4s %4s, %19[^(](%4[^)])", mnemonic, rs2, offset, base) == 4) {
-                return encode_s_type(inst, register_number(base),
-                                   register_number(rs2), parse_immediate(offset));
+                return codificar_tipo_s(inst, numero_registrador(base),
+                                   numero_registrador(rs2), analisar_imediato(offset));
             } else {
                 sscanf(line, "%4s %4s, %19s, %4s", mnemonic, rs2, imm, rs1);
-                return encode_s_type(inst, register_number(rs1),
-                                   register_number(rs2), parse_immediate(imm));
+                return codificar_tipo_s(inst, numero_registrador(rs1),
+                                   numero_registrador(rs2), analisar_imediato(imm));
             }
         }
+        
         case 'B': {
             sscanf(line, "%4s %4s, %4s, %19s", mnemonic, rs1, rs2, imm);
-            return encode_b_type(inst, register_number(rs1),
-                               register_number(rs2), parse_immediate(imm));
+            return codificar_tipo_b(inst, numero_registrador(rs1),
+                               numero_registrador(rs2), analisar_imediato(imm));
         }
+        
         default: return 0;
     }
 }
+
+// ============================================================================
+// FUNÇÃO PRINCIPAL
+// ============================================================================
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -148,20 +173,25 @@ int main(int argc, char *argv[]) {
     char line[MAX_LINE_LENGTH];
 
     while (fgets(line, sizeof(line), input)) {
+        // Pula linhas vazias e comentários
         if (line[0] == '\n' || line[0] == '#') continue;
         
+        // Remove quebra de linha
         line[strcspn(line, "\n")] = 0;
         strcpy(output[count].original, line);
         
-        expand_pseudo_instructions(line);
-        output[count].binary = assemble_instruction(line);
+        // Expande pseudo-instruções e monta
+        expandir_pseudo_instrucoes(line);
+        output[count].binary = montar_instrucao(line);
         
         count++;
     }
 
     fclose(input);
 
+    // Saída dos resultados
     if (argc == 4 && strcmp(argv[2], "-o") == 0) {
+        // Escreve para arquivo
         FILE *out = fopen(argv[3], "w");
         for (int i = 0; i < count; i++) {
             for (int b = 31; b >= 0; b--) {
@@ -171,6 +201,7 @@ int main(int argc, char *argv[]) {
         }
         fclose(out);
     } else {
+        // Escreve para stdout
         for (int i = 0; i < count; i++) {
             for (int b = 31; b >= 0; b--) {
                 printf("%d", (output[i].binary >> b) & 1);
