@@ -4,12 +4,10 @@
 #include <stdint.h>
 #include <ctype.h>
 
-// Constantes do programa
 #define MAX_LINE_LENGTH 100
 #define INSTRUCTION_COUNT 11
 #define MAX_INSTRUCTIONS 100
 
-// Estruturas de dados
 typedef struct {
     char mnemonic[5];
     uint8_t opcode;
@@ -23,7 +21,6 @@ typedef struct {
     char original[50];
 } AssembledInstruction;
 
-// Conjunto de instruções suportadas
 const Instruction INSTRUCTION_SET[INSTRUCTION_COUNT] = {
     {"lh",   0x03, 0x1, 0x00, 'I'},
     {"sh",   0x23, 0x1, 0x00, 'S'},
@@ -37,10 +34,6 @@ const Instruction INSTRUCTION_SET[INSTRUCTION_COUNT] = {
     {"sll",  0x33, 0x1, 0x00, 'R'},
     {"xor",  0x33, 0x4, 0x00, 'R'}
 };
-
-// ============================================================================
-// FUNÇÕES AUXILIARES
-// ============================================================================
 
 uint32_t analisar_imediato(const char *str) {
     if (strncmp(str, "0x", 2) == 0) return strtoul(str, NULL, 16);
@@ -67,10 +60,6 @@ void expandir_pseudo_instrucoes(char *line) {
         strcpy(line, "addi x0, x0, 0");
     }
 }
-
-// ============================================================================
-// FUNÇÕES DE CODIFICAÇÃO POR TIPO DE INSTRUÇÃO
-// ============================================================================
 
 uint32_t codificar_tipo_r(const Instruction *inst, uint8_t rd, uint8_t rs1, uint8_t rs2) {
     return (inst->funct7 << 25) | (rs2 << 20) | (rs1 << 15) 
@@ -99,15 +88,10 @@ uint32_t codificar_tipo_b(const Instruction *inst, uint8_t rs1, uint8_t rs2, uin
          | (inst->funct3 << 12) | (imm_4_1 << 8) | (imm_11 << 7) | inst->opcode;
 }
 
-// ============================================================================
-// FUNÇÃO PRINCIPAL DE MONTAGEM
-// ============================================================================
-
 uint32_t montar_instrucao(const char *line) {
     char mnemonic[5], rd[5], rs1[5], rs2[5], imm[20];
     const Instruction *inst = NULL;
     
-    // Busca a instrução no conjunto de instruções
     for (int i = 0; i < INSTRUCTION_COUNT; i++) {
         if (strncmp(line, INSTRUCTION_SET[i].mnemonic, strlen(INSTRUCTION_SET[i].mnemonic)) == 0) {
             inst = &INSTRUCTION_SET[i];
@@ -152,10 +136,6 @@ uint32_t montar_instrucao(const char *line) {
     }
 }
 
-// ============================================================================
-// FUNÇÃO PRINCIPAL
-// ============================================================================
-
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Uso: %s arquivo.asm [-o saida.txt]\n", argv[0]);
@@ -173,25 +153,17 @@ int main(int argc, char *argv[]) {
     char line[MAX_LINE_LENGTH];
 
     while (fgets(line, sizeof(line), input)) {
-        // Pula linhas vazias e comentários
         if (line[0] == '\n' || line[0] == '#') continue;
-        
-        // Remove quebra de linha
         line[strcspn(line, "\n")] = 0;
         strcpy(output[count].original, line);
-        
-        // Expande pseudo-instruções e monta
         expandir_pseudo_instrucoes(line);
         output[count].binary = montar_instrucao(line);
-        
         count++;
     }
 
     fclose(input);
 
-    // Saída dos resultados
     if (argc == 4 && strcmp(argv[2], "-o") == 0) {
-        // Escreve para arquivo
         FILE *out = fopen(argv[3], "w");
         for (int i = 0; i < count; i++) {
             for (int b = 31; b >= 0; b--) {
@@ -201,7 +173,6 @@ int main(int argc, char *argv[]) {
         }
         fclose(out);
     } else {
-        // Escreve para stdout
         for (int i = 0; i < count; i++) {
             for (int b = 31; b >= 0; b--) {
                 printf("%d", (output[i].binary >> b) & 1);
